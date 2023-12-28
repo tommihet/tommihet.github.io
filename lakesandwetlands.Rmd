@@ -1,0 +1,594 @@
+---
+title: "Lakes and wetlands analysis"
+output: html_document
+date: "2023-12-28"
+---
+
+```{r readfile}
+# Import package for geographical clustering
+library(ClustGeo)
+# Import libraries for enhanced plotting
+library(dplyr)
+library(RColorBrewer)
+library(scales)
+# Read in the datafile
+data<-read.csv("glwd_1.csv")
+```
+Colour maps to be used in the figures.
+
+```{r}
+reds<-c("#FFF5F0", "#FEE0D2", "#FCBBA1", "#FC9272", "#FB6A4A", "#EF3B2C",
+        "#C0181D", "#A00F15", "#700000", "#400000")
+blues<-c("#F7FBFF", "#DEEBF7", "#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6",
+         "#2171B5", "#08519C", "#000070", "#000040")
+greens<-c("#F7FCF5", "#E5F5E0", "#C7E9C0", "#A1D99B", "#74C476", "#41AB5D",
+          "#238B45", "#006D2C", "#004000", "#000400")
+```
+
+# Variable explanations
+
+*ELEV_M*: contains the elevation from sea level in meters.
+
+*AREA_SKM*: area of the lake in square kilometers. There are some differences compared to other sources, but there is even more variability when 
+compared to other sources further. It seems that there might be some distinction behind the difference, perhaps time of measurement.
+
+*LONG_DEG* and *LAT_DEG*: these show the coordinates of the body of water.
+
+*COUNTRY*: shows the country, where the lake is situated. If there are multiple countries, other countries are listed in *SEC_CNTRY*.
+
+*TYPE*: tells us whether the body of water is a lake or a reservoir.
+
+The dataset contains other variables as well, which are not considered here.
+
+# Tentative exploratory analysis
+
+Let us start by drawing histograms of the *AREA_SKM* variable. Since the difference between the smallest and largest lakes is so big, we will
+draw multiple figures using cutoffs.
+
+```{r histogram1, fig.width=6, fig.height=3}
+hist(data[data$AREA<3000,]$AREA, main=expression(Frequency~of~lakes~per~area~
+                                                   ("\u{003C}"~3000~km^2)),
+     xlab="Area, square kilometer", ylab="Frequency", col=reds[6])
+```
+
+From the figure, we see that a majority of the areas are between 0 and 500 square kilometers. Let us look more closely, how the frequency
+behaves as the area grows.
+
+```{r histogram2, fig.width=6, fig.height=4}
+hist(data[data$AREA<800,]$AREA, main=expression(Frequency~of~lakes~per~area~
+                                                  ("\u{003C}"~800~km^2)), 
+     xlab="Area, square kilometer", ylab="Frequency", col=reds[6])
+```
+
+Here we see that there are not as many datapoints at the lowest bin. This is most likely because the dataset is limited, so very small lakes
+are more likely to not be modeled here. In addition, we see from the figure that the frequency decreases steadily as the area grows.
+
+```{r histogram3, fig.width=6, fig.height=4}
+hist(data[data$AREA<300,]$AREA, main=expression(Frequency~of~lakes~per~area~
+                                                  ("\u{003C}"~300~km^2)),
+     xlab="Area, square kilometer", ylab="Frequency", col=reds[6])
+```
+
+Here we see more clearly that at around an area of 100 square kilometers and below, the frequency starts to drop. 
+
+Next, we will draw a histogram of the elevation.
+
+```{r histogram4, fig.width=6, fig.height=4}
+hist(data$ELEV, main=expression(Frequency~of~lakes~per~elevation), 
+     xlab="Elevation from sea level, meter", ylab="Frequency", col=blues[6])
+```
+
+Similarly to the area, there are some lakes at very high altitudes, while most lakes are at roughly sea level. Here we can split the lakes 
+and draw the figure based on a cutoff-point again. First, let us see what the elevation is in the lowest elevated lakes.
+
+```{r}
+sort(data$ELEV)[1:10]
+```
+
+There are only three lakes with an elevation of under -100 meters. For the first figure, we will only consider the lakes with a higher elevation
+than this up to an elevation of 1000 meters. In the second figure, we will look at the gap between the lakes at roughly sea level and the 
+very high altitude lakes at around 5000 meters. Finally, we will look at those high altitude lakes in a final third figure.
+
+```{r histogram5, fig.width=6, fig.height=4}
+hist(data[data$ELEV>-100&data$ELEV<1000,]$ELEV, main=expression(Frequency~of~
+                            lakes~per~elevation~(">"~-100~m~and~"<"~1000~m)), 
+     xlab="Elevation, meter", ylab="Frequency", col=blues[6])
+```
+
+From this figure we see that the frequency of lakes above sea level and under 100 meters is the greatest. As the elevation rises, the frequency 
+decreases up to an elevation of around 500 meters. After that point, based on this figure, there appears to be an equal amount of lakes at each 
+bin. We can look at this more closely in the following figure:
+
+```{r histogram6, fig.width=6, fig.height=4}
+hist(data[data$ELEV>1000&data$ELEV<4000,]$ELEV, main=expression(Frequency~of~
+                              lakes~per~elevation~(">"~1000~m~and~"<"~4000~m)), 
+     xlab="Elevation, meter", ylab="Frequency", col=blues[6])
+```
+
+Here we see that the frequency of lakes does in fact still decrease with elevation at over 500 meters. This decrease slows down at around 3000 
+meters elevation. Here, at an elevation of between 2000 meters and 4000 meters, there are not very many datapoints.
+
+```{r histogram7, fig.width=6, fig.height=4}
+hist(data[data$ELEV>4000,]$ELEV, main=expression(Frequency~of~lakes~per~
+                                                   elevation~(">"~4000~m)), 
+     xlab="Elevation, meter", ylab="Frequency", col=blues[6])
+```
+
+From this figure, we see that these high altitude lakes are centered around an elevation of roughly 4900 meters. Let us look into these particular
+lakes further by examining where they are situated as well as their area.
+
+```{r}
+data[data$ELEV>4400,]$COUNTRY
+```
+
+We see that the cluster of lakes at high altitudes consists of mostly lakes from China. This begs us to question how the dataset is formed. It 
+would make sense that there would be more lakes at the altitudes between 1000m and 4000m meters as well. It might be they have been omitted
+from the dataset, or that they simply have not been mapped quite as extensively as the mountain lakes in China.
+
+```{r}
+data[data$ELEV>4400,]$AREA
+```
+
+We also see that these lakes are quite varied in their size. Over half of the lakes are between 50 and 100 square kilometers in area, which we 
+earlier saw is the most common size of lakes in the dataset.
+
+# Distance calculator
+
+Let's make a coordinates-to-distance calculator, which we can use to calculate the distance between two lakes or reservoirs based on their
+coordinates. This is done using Great-circle distance, meaning that we are calculating the distance traveled on the surface of Earth. This
+has great inaccuracies when the compared points are very near, but since we are interested in greater distances, this should be a good 
+approximation for us. The other option would be to project the sphere to a plane and calculate the straight distance, which would be better
+when the distances are short.
+
+This method introduces some error, as Earth is assumed to be spherical, when in truth it is an ellipsoid.
+
+See for more information: https://en.wikipedia.org/wiki/Great-circle_distance
+
+```{r}
+# R is the radius of earth (approximation based on spherical earth)
+# ind1 and ind2 are the index of the lakes that we want to calculate the 
+# distance between data is the dataframe
+calculate_distance <- function(R,ind1,ind2,data) {
+# phi_1 is the latitude of the first lake
+# phi_2 is the latitude of the second lake
+phi_1 <- data$LAT[ind1]
+phi_2 <- data$LAT[ind2]
+
+# lambda_1 is the longitude of the first lake
+# lambda_2 is the longitude of the second lake
+lambda_1 <- data$LONG[ind1]
+lambda_2 <- data$LONG[ind2]
+
+# Convert the longitudes and latitudes to radians
+phi_1_rad <- (pi/180) * phi_1
+phi_2_rad <- (pi/180) * phi_2
+lambda_1_rad <- (pi/180) * lambda_1
+lambda_2_rad <- (pi/180) * lambda_2
+
+# Calculate latitude and longitude difference
+phi_diff<-abs(phi_1_rad-phi_2_rad)
+lambda_diff<-abs(lambda_1_rad-lambda_2_rad)
+
+# Calculate the central angle between the two points
+sigma_diff1 <- acos((sin(phi_1_rad) * sin(phi_2_rad)) + (cos(phi_1_rad) * 
+                                    cos(phi_2_rad) * cos(lambda_diff)))
+
+# Calculate the arc length -> the distance
+D <- 6371.0 * sigma_diff1
+
+# Distance
+return(D)
+}
+calculate_distance(6371,1,2,data)
+```
+
+Using the distance calculation function, we can calculate the distance between each lake
+
+```{r}
+# Extract n, the sample size
+n<-dim(data)[1]
+# Use the distance calculation function on all pairs of lakes. This produces 
+# warnings on NaN-values produced, which we will deal with next.
+suppressWarnings(DList<-lapply(1:n, function (x) {calculate_distance(R=6371,
+                                              ind1=1:n, ind2=x, data=data)}))
+# Convert the list to a matrix
+DMat<-do.call(rbind, DList)
+# Check NaN-values and collect their indices. They should all be zero, 
+# so we can simply correct them manually
+nans<-which(is.na(DMat), arr.ind=TRUE)
+# Set the NaN-values to zero
+DMat[nans]<-0
+# Check that there are no more NaN-values left
+which(is.na(DMat), arr.ind=TRUE)
+```
+
+Now, we do cluster analysis. To begin, we only use the variables of interest and not the distance matrix. We will use the variables *elev_m*,
+*area_skm* and *type*. First, let's draw the figure of the lakes by their coordinates.
+
+```{r scatterplot1, fig.width=6, fig.height=3}
+plot(data$LONG, data$LAT, main=expression(Coordinates~of~datapoints), 
+     xlab="Longitude", ylab="Latitude", col=alpha("#CB181D", 0.5) , cex=0.8)
+```
+
+Next, to do clustering we need to normalize the numeric variables.
+
+```{r}
+# Normalize elevation and area
+dataClust<-data[,c(4,8,12)]
+z <- dataClust[,c(2,3)]
+means <- apply(z,2,mean)
+sds <- apply(z,2,sd)
+nor <- scale(z,center=means,scale=sds)
+distance = dist(nor)
+```
+
+For the clustering, we use the function hclust from base-R. To get the desired amount of groups, we cut the result tree with the function
+cutree.
+
+```{r}
+# Function for clustering and plotting the map with different colours based on the clustering
+plotClusters <- function(distance, method, k, main="", xlab="", ylab="", 
+                         cols=c("#FFF5F0", "#FEE0D2", "#FCBBA1", "#FC9272",
+                                "#FB6A4A", "#EF3B2C", "#C0181D", "#A00F15", 
+                                "#700000", "#400000"), alp=0.5, cex=0.5) {
+ctreefull = hclust(distance, method=method)
+ctreecut <- cutree(ctreefull, k)
+sort(table(ctreecut))
+names(table(ctreecut))
+a<-cols[as.numeric(names(sort(table(ctreecut))))]
+names(a)<-names(table(ctreecut))
+ctreecut<-recode(ctreecut, !!!a, .default = NULL)
+plot(data$LONG, data$LAT, col = alpha(ctreecut, alp), main=main, xlab=xlab, 
+     ylab=ylab, cex=cex)
+}
+```
+
+Let's start by testing the different methods for clustering. For each, we will do cutoff at 10 groups. From the documentation, we can find further
+information each method. These methods are applied as the linkage function in calculating the dissimilarities. Function formulas are from
+https://en.wikipedia.org/wiki/Hierarchical_clustering.
+
+First is method ward.D. It is calculated as minimum increase of sum of squares:
+
+$\Sigma_{x \in A \cup B}|| x - \mu_{A \cup B} || - \Sigma_{x \in A}|| x - \mu_A|| -\Sigma_{x \in B}|| x - \mu_B ||$
+
+Further information on origins and history https://en.wikipedia.org/wiki/Ward%27s_method
+
+```{r scatterplot2, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D", k=10, 
+             main=expression(paste(ward.D, ", ", 10~clusters)), xlab="Longitude", 
+             ylab="Latitude", cols=reds, alp=0.8)
+```
+
+Next, the very similar method ward.D2. The difference to ward.D is that the dissimilarities are squared before cluster updating: 
+
+$\frac{ |A| \cdot |B| }{ |A \cup B| } || {\mu_A}^2 - {\mu_B}^2 ||^2 = \Sigma_{x \in A \cup B} || x - \mu_{A \cup B} ||^2 - \Sigma_{x \in A}|| x - \mu_A||^2 -\Sigma_{x \in B}|| x - \mu_B ||^2$
+
+```{r scatterplot3, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D2", k=10, 
+             main=expression(paste(ward.D2, ", ", 10~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds, alp=0.6)
+```
+
+Due to the nature of the first Ward method and our distance matrix not having the distances squared, the second method should be used. 
+
+Next is the single method. The formula is given as
+
+$\min \atop a \in A, b \in B$ $d(a, b)$
+
+All lakes are in one group. Not much use from this method.
+
+```{r scatterplot4, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="single", k=10, 
+             main=expression(paste(single, ", ", 10~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds, alp=0.5)
+```
+
+Next is the complete method. The formula is 
+
+$\max \atop a \in A, b \in B$ $d(a, b)$
+
+Using this method we do find some clear groups, like the high altitude lakes in China, but a majority of the lakes in the dataset are still
+in a large group.
+
+```{r scatterplot5, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="complete", k=10, 
+             main=expression(paste(complete, ", ", 10~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds, alp=0.5)
+```
+
+Next, the average method (UPGMA, unweighted average linkage clustering). The formula is
+
+$\frac{1}{|A| \cdot |B|} \Sigma_{a \in A} \Sigma_{b \in B}~d(a,b)$
+
+The results are very similar to the ones from using the complete method, however it seems some of the groups are even smaller.
+
+```{r scatterplot6, fig.width=6, fig.height=3}
+# This seems very similar to the method complete.
+plotClusters(distance=distance, method="average", k=10, 
+             main=expression((paste(average, ", ", 10~clusters)),~10~clusters), xlab="Longitude",
+             ylab="Latitude", reds, alp=0.5)
+```
+
+Next, the mcquitty method (WPGMA, weighted average linkage clustering). The formula is
+
+$d(i \cup j, k) = \frac {d(i,k)+d(j,k)}{2}$
+
+Again, the results are very similar to the ones we got using the complete method.
+
+```{r scatterplot7, fig.width=6, fig.height=3}
+
+plotClusters(distance=distance, method="mcquitty", k=10, 
+             main=expression(paste(mcquitty, ", ", 10~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds, alp=0.5)
+```
+
+Next, the median method (WPGMC, median linkage clustering). The formula is
+
+$d(i \cup j, k) = d(m_{i \cup j}, m_k)$, where $m_{i \cup j}=\frac{m_i + m_j}{2}$
+
+The results are yet again very similar to the complete method, with most of the smaller groups slightly smaller.
+
+```{r scatterplot8, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="median", k=10, 
+             main=expression(paste(median, ", ", 10~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds, alp=0.5)
+```
+
+Finally, the centroid method (UPGMC, centroid linkage clustering). The formula is
+
+$|| \mu_{a} - \mu_{b}||^2$, where $\mu_{a}$ and $\mu_{b}$ are the centroids of $A$ and $B$, respectively.
+
+Again, we get very similar results.
+
+```{r scatterplot9, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="centroid", k=10,
+             main=expression(paste(centroid, ", ", 10~clusters)), xlab="Longitude",
+             ylab="Latitude", reds, alp=0.5)
+```
+
+Next, let's try to further refine our clustering using the method ward.D2, starting with only two groups and gradually increasing the amount.
+
+```{r scatterplot10, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D2", k=2, 
+             main=expression(paste(ward.D2, ", ", 2~clusters)), xlab="Longitude", 
+             ylab="Latitude", blues[c(2,8)], alp=0.5)
+```
+
+Groups the high altitude lakes in China as well as some lakes in South America. Next, three groups.
+
+```{r scatterplot11, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D2", k=3, 
+             main=expression(paste(ward.D2, ", ", 3~clusters)), xlab="Longitude", 
+             ylab="Latitude", blues[c(10,2,8)], alp=0.5) 
+```
+
+The grouping is largely the same, the new third group has only a couple members, coloured black.
+
+```{r scatterplot12, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D2", k=4, 
+             main=expression(paste(ward.D2, ", ", 4~clusters)), xlab="Longitude", 
+             ylab="Latitude", blues[c(9,10,2,8)], alp=0.5) 
+```
+
+Continuing with the trend, there is an additional level of grouping.
+
+```{r scatterplot13, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D2", k=5, 
+             main=expression(paste(ward.D2, ", ", 5~clusters)), xlab="Longitude", 
+             ylab="Latitude", blues[c(10,4,6,8,2)], alp=0.5) 
+```
+
+Now we start to see some meaningful groups forming.
+
+```{r scatterplot14, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="ward.D2", k=7, 
+             main=expression(paste(ward.D2, ", ", 7~clusters)), xlab="Longitude", 
+             ylab="Latitude", blues[c(10,1,4,6,8,2)], alp=0.5)
+```
+
+Further groups are developing. There does not appear to be a very dominant group at this point. 
+
+Next, let's do the same to the method complete.
+
+```{r scatterplot15, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="complete", k=2, 
+             main=expression(paste(complete, ", ", 2~clusters)), xlab="Longitude", 
+             ylab="Latitude", greens[c(2,8)], alp=0.5)
+```
+
+Only one large group. Let's add groups until we see a change.
+
+```{r scatterplot16, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="complete", k=4, 
+             main=expression(paste(complete, ", ", 4~clusters)), xlab="Longitude", 
+             ylab="Latitude", greens[c(10,10,2,8)], alp=0.5)
+```
+
+Now we see the high altitude lakes in their own group. However, two of the groups are not to be seen on the map.
+
+```{r scatterplot17, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="complete", k=7, 
+             main=expression(paste(complete, ", ", 7~clusters)), xlab="Longitude", 
+             ylab="Latitude", greens[c(10, 10, 10, 10, 2, 8, 5)], alp=0.5) 
+```
+
+One more group that we can actually see on the map. This method does not seem to be very useful, as a large part of the groups end up being
+very small.
+
+Let's try to further refine the method average
+
+```{r scatterplot18, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="average", k=2, 
+             main=expression(paste(average, ", ", 2~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds[c(2,8)], alp=0.5) 
+```
+
+Again, there is only one group.
+
+```{r scatterplot19, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="average", k=4, 
+             main=expression(paste(average, ", ", 4~clusters)), xlab="Longitude",
+             ylab="Latitude", reds[c(10, 10, 2, 8)], alp=0.5) 
+```
+
+Similar to with method complete, we get the grouping of the high altitude lakes when we make four groups.
+
+```{r scatterplot20, fig.width=6, fig.height=3}
+plotClusters(distance=distance, method="average", k=7, 
+             main=expression(paste(average, ", ", 7~clusters)), xlab="Longitude", 
+             ylab="Latitude", reds[c(10, 10, 10, 10, 5, 2, 8)], alp=0.5) 
+```
+
+Yet again, we need to have seven groups total until we get a meaningful third group. The analysis is almost identical to the one with method 
+complete.
+
+Secondly, let's do the same thing but utilizing the distance matrix we got using the distance calculator. Now, we will use the function hclustgeo.
+The function is supplied with the two distance matrices, D0 and D1, as well as a scaling parameter alpha, which specifies the relative importance
+between D0 and D1. The parameter should be between 0 and 1. Lower values result in D0 having more importance while values closer to 1 give D1 more
+importance. This means that we need to find a good balancing value for alpha.
+
+The clustering algorithm cannot be changed with hclustgeo. The used method is based on the Ward methods, which we found to be the most promising
+in the previous section. Our function will be similar to the plotClusters from earlier, where we supply the distance matrices, the alpha value as
+well as some plotting specifications and output the plot with different groups having different colours.
+
+```{r}
+plotClustersGeo <- function(D0, D1, alpha, k, main="", xlab="", ylab="",
+                            cols=c("#FFF5F0", "#FEE0D2", "#FCBBA1", "#FC9272",
+                                "#FB6A4A", "#EF3B2C", "#C0181D", "#A00F15", 
+                                "#700000", "#400000"), alp=0.5, cex=0.5) {
+ctreefull = hclustgeo(D0, D1, alpha)
+ctreecut <- cutree(ctreefull, k)
+sort(table(ctreecut))
+names(table(ctreecut))
+a<-cols[as.numeric(names(sort(table(ctreecut))))]
+names(a)<-names(table(ctreecut))
+ctreecut<-recode(ctreecut, !!!a, .default = NULL)
+plot(data$LONG, data$LAT, col = alpha(ctreecut, alp), main=main, xlab=xlab, 
+     ylab=ylab, cex=cex)
+}
+
+distance2<-as.dist(DMat)
+```
+
+Firstly, let's try to find a good value for alpha, that is, let's try to find a good balance between the weighting of the geographical location
+and the characteristics of the lake.
+
+```{r scatterplot21, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.5, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.5)),
+                xlab="Longitude", ylab="Latitude",
+                col=reds, alp=0.5)
+```
+
+Here we see that an even weighting results in the grouping being very heavily based on geographical location, with very little effect from the
+characteristics of the lakes. 
+
+```{r scatterplot22, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.1, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.1)),
+                col=reds[c(1,2,3,4,5,6,7,8,9,10)], alp=0.5)
+```
+
+Now, adjusting the weighting to alpha=0.1, we start to see some effect from the characteristics of the lakes. The high altitude lakes in China are
+now in their own group. However, the weighting should still be more adjusted towards the characteristics having a more pronounced effect in other
+areas as well.
+
+```{r scatterplot23, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.03, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.03)),
+                col=reds[c(1,2,9,6,5,4,7,8,3,10)], alp=0.5)
+```
+
+Here we see some lakes all over being in a different group than the lakes surrounding it, indicating it is somehow different based on its 
+characteristics. We can try to adjust the weighting a little more to see, how it affects the number of these "outliers". First, we set the alpha-
+value to 0.01.
+
+```{r scatterplot24, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.01, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.01)),
+                col=reds[c(7,2,1,9,6,5,4,8,3,10)], alp=0.5)
+```
+
+Here the grouping is quite similar, but some areas are clustered differently. Next, alpha is set to 0.005.
+
+```{r scatterplot25, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.005, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.005)),
+                col=reds[c(7,5,4,8,9,1,10,6,2,3)], alp=0.5)
+```
+
+Now, we start to see more of the geographical groups being combined and these "outlier" groups emerging. This figure represents a quite good balance
+between the geographical location and characteristics of the lakes. We can try a couple more to see, if we get results similar to those using the 
+function with no location input. Here, alpha is set to 0.001.
+
+```{r scatterplot26, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.001, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.001)),
+                col=reds[c(7,9,3,5,6,1,8,2,4,10)], alp=0.5)
+```
+
+Here, the larger groups extend to multiple continents.
+
+And here alpha is set to 0.0001.
+
+```{r scatterplot27, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.0001, k=10,
+                main=expression(paste(Geographical~clustering, ", ", 10
+                                      ~clusters, ", alpha ", is~0.0001)),
+                col=reds[c(7,9,6,1,4,10,8,3,5,2)], alp=0.5)
+```
+
+Here, most groups are stretch across all continents and there is little effect based on the geographical location.
+
+Let's try to adjust the amount of clusters while setting alpha to 0.005.
+
+```{r scatterplot28, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.005, k=4,
+                main=expression(paste(Geographical~clustering, ", ", 4
+                                      ~clusters, ", alpha ", is~0.005)),
+                col=reds[c(10,8,1,5)], alp=0.5)
+```
+
+With four clusters, we get most of the lakes split into two groups, with some in their own group. 
+
+```{r scatterplot29, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.005, k=5,
+                main=expression(paste(Geographical~clustering, ", ", 5
+                                      ~clusters, ", alpha ", is~0.005)),
+                col=reds[c(2,4,1,8,6)], alp=0.5)
+```
+
+By adding one more group, the group consisting of the Americas gets split into two groups.
+
+```{r scatterplot30, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.005, k=6,
+                main=expression(paste(Geographical~clustering, ", ", 6
+                                      ~clusters, ", alpha ", is~0.005)),
+                col=reds[c(2,4,1,6,8,9)], alp=0.5)
+```
+
+With six clusters, we see a further group split into two.
+
+```{r scatterplot31, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.005, k=7,
+                main=expression(paste(Geographical~clustering, ", ", 7
+                                      ~clusters, ", alpha ", is~0.005)),
+                col=reds[c(2,4,3,1,6,8,9)], alp=0.5)
+```
+
+Now, with seven clusters we get another group consisting of lakes from all over the map, predominantly mountain regions in the Americas and Asia.
+
+```{r scatterplot32, fig.width=6, fig.height=3}
+plotClustersGeo(D0=distance, D1=distance2, alpha=0.005, k=8,
+                main=expression(paste(Geographical~clustering, ", ", 8
+                                      ~clusters, ", alpha ", is~0.005)),
+                col=reds[c(2,5,4,3,1,6,8,9)], alp=0.5)
+```
+
+With eight clusters, we get a further group of lakes all over the map, this time the connection between them is not that clear.
