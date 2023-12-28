@@ -1,0 +1,5 @@
+.RData
+.RDataTmp
+
+*.utf8.md
+*.knit.md
