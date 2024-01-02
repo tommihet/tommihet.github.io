@@ -1,5 +1,8 @@
 # Only solution for part 2; part 1 was same but with simpler worry level
 # reduction (always divide by three) and less rounds to calculate
+# Link to the Advent of Code site with detailed explanation of the problem:
+# https://adventofcode.com/2022/day/11
+#
 # Import heap sort
 import heapq
 
