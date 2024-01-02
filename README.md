@@ -1,7 +1,8 @@
 # tommihet.github.io
 
 # Project 1
-AoC 2022 day 11
+Advent of Code 2022 day 11 second part
+[tommihet.github.io/11.py](https://tommihet.github.io/11.py)
 
 # Project 2
 Lakes and wetlands data analysis
