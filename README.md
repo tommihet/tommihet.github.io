@@ -16,5 +16,6 @@ Lakes and wetlands data analysis
 
 [tommihet.github.io/lakes](https://tommihet.github.io/lakesandwetlands.html)
 
-The data for this project is downloaded from https://www.kaggle.com/datasets/mexwell/global-lakes-and-wetlands-database/ , originally released to https://gis.openforestdata.pl/layers/glwd_3:geonode:glwd_3 .
+The data for this project is downloaded from [https://www.kaggle.com/datasets/mexwell/global-lakes-and-wetlands-database/](https://www.kaggle.com/datasets/mexwell/global-lakes-and-wetlands-database/),
+originally released to [https://gis.openforestdata.pl/layers/glwd_3:geonode:glwd_3](https://gis.openforestdata.pl/layers/glwd_3:geonode:glwd_3).
 The dataset contains information on over 3000 lakes and reservoirs. In this analysis, I explore the dataset and perform cluster analysis.
