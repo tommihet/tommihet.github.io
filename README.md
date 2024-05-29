@@ -6,8 +6,6 @@
 
 [And click here to download the input file](https://tommihet.github.io/input.txt)
 
-[Link to development container running the code](https://refactored-winner-977xpg6xqwxpfxwq6.github.dev/)
-
 Advent of Code is a yearly advent calendar containing programming puzzles each day during December. This is my solution to the second part of the day 11 puzzle of year 2022. 
 
 # Lakes and wetlands data analysis
